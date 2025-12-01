@@ -17,14 +17,22 @@ class SuggestionService {
     const suggestions: TradingSuggestion[] = [];
     const activeStocks = await alpacaService.getActiveStocks();
 
+    console.log(`Scanning ${activeStocks.length} stocks for ${tier} tier...`);
+
     for (const symbol of activeStocks) {
       try {
         // Get stock quote
         const stockData = await alpacaService.getStockQuote(symbol);
-        if (!stockData) continue;
+        if (!stockData) {
+          console.log(`${symbol}: No stock data available`);
+          continue;
+        }
 
         // Check if price is within tier range
-        if (stockData.price > tierConfig.maxStockPrice) continue;
+        if (stockData.price > tierConfig.maxStockPrice) {
+          console.log(`${symbol}: Price $${stockData.price} exceeds tier max $${tierConfig.maxStockPrice}`);
+          continue;
+        }
         if (stockData.price <= 0) continue;
 
         // Calculate how many shares can be bought
@@ -33,15 +41,26 @@ class SuggestionService {
 
         // Calculate ORB data
         const orbData = await alpacaService.calculateORB(symbol);
-        if (!orbData) continue;
+        if (!orbData) {
+          console.log(`${symbol}: No ORB data available`);
+          continue;
+        }
 
-        // Check liquidity
-        if (orbData.liquidity === 'LOW') continue;
+        // More lenient liquidity check - accept MEDIUM and HIGH
+        // (Skip only LOW liquidity during market hours, accept all outside hours)
+        const isMarketHours = this.isMarketHours();
+        if (isMarketHours && orbData.liquidity === 'LOW') {
+          console.log(`${symbol}: Low liquidity during market hours`);
+          continue;
+        }
 
-        // Only suggest stocks with breakout or near breakout
-        if (orbData.breakoutType === 'NONE' &&
-            Math.abs(orbData.currentPrice - orbData.openingRangeHigh) / orbData.openingRangeHigh > 0.02 &&
-            Math.abs(orbData.currentPrice - orbData.openingRangeLow) / orbData.openingRangeLow > 0.02) {
+        // More lenient distance threshold - 5% instead of 2%
+        const distToHigh = Math.abs(orbData.currentPrice - orbData.openingRangeHigh) / orbData.openingRangeHigh;
+        const distToLow = Math.abs(orbData.currentPrice - orbData.openingRangeLow) / orbData.openingRangeLow;
+
+        // Only suggest stocks with breakout or within 5% of opening range
+        if (orbData.breakoutType === 'NONE' && distToHigh > 0.05 && distToLow > 0.05) {
+          console.log(`${symbol}: Too far from ORB range (${(Math.min(distToHigh, distToLow) * 100).toFixed(1)}%)`);
           continue;
         }
 
@@ -58,14 +77,16 @@ class SuggestionService {
           const distToHigh = ((orbData.openingRangeHigh - orbData.currentPrice) / orbData.currentPrice * 100);
           const distToLow = ((orbData.currentPrice - orbData.openingRangeLow) / orbData.currentPrice * 100);
 
-          if (distToHigh < distToLow && distToHigh < 2) {
+          if (distToHigh < distToLow && distToHigh < 5) {
             reason = `Near ORB high resistance ($${orbData.openingRangeHigh.toFixed(2)}), watching for breakout`;
-          } else if (distToLow < 2) {
+          } else if (distToLow < 5) {
             reason = `Near ORB low support ($${orbData.openingRangeLow.toFixed(2)}), watching for breakdown`;
           } else {
-            continue; // Too far from opening range
+            reason = `Consolidating within range ($${orbData.openingRangeLow.toFixed(2)} - $${orbData.openingRangeHigh.toFixed(2)})`;
           }
         }
+
+        console.log(`${symbol}: ✓ Added to suggestions (${orbData.breakoutType}, ${orbData.liquidity} liquidity)`);
 
         suggestions.push({
           symbol,
@@ -77,11 +98,14 @@ class SuggestionService {
           tier
         });
 
+
       } catch (error) {
         console.error(`Error processing ${symbol}:`, error);
         continue;
       }
     }
+
+    console.log(`Found ${suggestions.length} total suggestions for ${tier} tier`);
 
     // Sort by breakout strength
     suggestions.sort((a, b) => {
@@ -97,6 +121,22 @@ class SuggestionService {
       suggestions: suggestions.slice(0, 10),
       timestamp: new Date().toISOString()
     };
+  }
+
+  private isMarketHours(): boolean {
+    const now = new Date();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+
+    // Market hours: 9:30 AM - 4:00 PM ET = 14:30 - 21:00 UTC
+    const currentUTCTime = utcHours * 60 + utcMinutes;
+    const marketOpen = 14 * 60 + 30; // 14:30 UTC
+    const marketClose = 21 * 60; // 21:00 UTC
+
+    const dayOfWeek = now.getUTCDay();
+    const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+
+    return isWeekday && currentUTCTime >= marketOpen && currentUTCTime < marketClose;
   }
 }
 
