@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  watchlistItems WatchlistItem[]
+
+  @@map("users")
+}
+
+model WatchlistItem {
+  id         String   @id @default(uuid())
+  userId     String
+  symbol     String
+  tier       String
+  price      Float
+  suggestedShares Int
+  totalCost  Float
+
+  // ORB Data
+  openingRangeHigh Float
+  openingRangeLow  Float
+  currentPrice     Float
+  breakoutType     String
+  breakoutPercent  Float
+  volume           Float
+  avgVolume        Float
+  liquidity        String
+
+  reason     String
+  addedAt    DateTime @default(now())
+  expiresAt  DateTime
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("watchlist_items")
+}

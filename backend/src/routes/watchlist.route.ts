@@ -1,13 +1,17 @@
-import { Router, Request, Response } from 'express';
-import watchlistService from '../services/watchlist.service';
+import { Router, Response } from 'express';
+import watchlistDBService from '../services/watchlist-db.service';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { TradingSuggestion } from '../types';
 
 const router = Router();
 
-// Get all watchlist items
-router.get('/', (req: Request, res: Response) => {
+// All routes require authentication
+router.use(authenticateToken);
+
+// Get all watchlist items for current user
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const watchlist = watchlistService.getWatchlist();
+    const watchlist = await watchlistDBService.getWatchlist(req.userId!);
     res.json(watchlist);
   } catch (error: any) {
     res.status(500).json({
@@ -18,7 +22,7 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // Add to watchlist
-router.post('/add', (req: Request, res: Response) => {
+router.post('/add', async (req: AuthRequest, res: Response) => {
   try {
     const { suggestion, expirationDays } = req.body as {
       suggestion: TradingSuggestion;
@@ -32,7 +36,7 @@ router.post('/add', (req: Request, res: Response) => {
       });
     }
 
-    const item = watchlistService.addToWatchlist(suggestion, expirationDays);
+    const item = await watchlistDBService.addToWatchlist(req.userId!, suggestion, expirationDays);
 
     res.json({
       success: true,
@@ -48,10 +52,10 @@ router.post('/add', (req: Request, res: Response) => {
 });
 
 // Remove from watchlist
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const removed = watchlistService.removeFromWatchlist(id);
+    const removed = await watchlistDBService.removeFromWatchlist(req.userId!, id);
 
     if (removed) {
       res.json({
@@ -72,9 +76,9 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 // Clear expired items
-router.post('/clear-expired', (req: Request, res: Response) => {
+router.post('/clear-expired', async (req: AuthRequest, res: Response) => {
   try {
-    const count = watchlistService.clearExpired();
+    const count = await watchlistDBService.clearExpired(req.userId!);
     res.json({
       success: true,
       removedCount: count,
