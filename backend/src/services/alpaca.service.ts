@@ -66,14 +66,25 @@ class AlpacaService {
 
       // Fallback: Use latest bar data if snapshot unavailable
       console.log(`${symbol}: Falling back to bar data`);
-      const bars = await this.getBars(symbol, '1Day', 2);
+
+      // Try 1-hour bars first (more recent than daily)
+      let bars = await this.getBars(symbol, '1Hour', 10);
+
+      // If no hourly bars, try daily bars
+      if (bars.length === 0) {
+        console.log(`${symbol}: No hourly bars, trying daily`);
+        bars = await this.getBars(symbol, '1Day', 5);
+      }
 
       if (bars.length === 0) {
+        console.log(`${symbol}: No bar data available at all`);
         return null;
       }
 
       const latestBar = bars[bars.length - 1];
       const previousBar = bars.length > 1 ? bars[bars.length - 2] : null;
+
+      console.log(`${symbol}: ✓ Using bar data - $${latestBar.ClosePrice} (${bars.length} bars, timeframe: ${bars.length > 5 ? '1Hour' : '1Day'})`);
 
       return {
         symbol,
@@ -94,7 +105,15 @@ class AlpacaService {
 
       const end = new Date();
       const start = new Date();
-      start.setDate(start.getDate() - 1); // Get data from yesterday to ensure we have enough
+
+      // Adjust start date based on timeframe
+      if (timeframe.includes('Day')) {
+        start.setDate(start.getDate() - 7); // Last 7 days for daily bars
+      } else if (timeframe.includes('Hour')) {
+        start.setDate(start.getDate() - 3); // Last 3 days for hourly bars
+      } else {
+        start.setDate(start.getDate() - 1); // Last day for minute bars
+      }
 
       const bars = await this.retryRequest(async () => {
         const barsIterator = await this.alpaca.getBarsV2(symbol, {
