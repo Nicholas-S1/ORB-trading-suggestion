@@ -44,7 +44,17 @@ class AlpacaService {
       // Try snapshot first
       const snapshot = await this.retryRequest(() => this.alpaca.getSnapshot(symbol));
 
+      // Debug logging
+      if (!snapshot) {
+        console.log(`${symbol}: Snapshot is null/undefined`);
+      } else if (!snapshot.latestTrade) {
+        console.log(`${symbol}: Snapshot has no latestTrade. Keys: ${Object.keys(snapshot).join(', ')}`);
+      } else if (!snapshot.latestTrade.p || snapshot.latestTrade.p <= 0) {
+        console.log(`${symbol}: Invalid price: ${snapshot.latestTrade.p}`);
+      }
+
       if (snapshot && snapshot.latestTrade && snapshot.latestTrade.p > 0) {
+        console.log(`${symbol}: ✓ Got snapshot - $${snapshot.latestTrade.p}`);
         return {
           symbol,
           price: snapshot.latestTrade.p || 0,
@@ -55,7 +65,7 @@ class AlpacaService {
       }
 
       // Fallback: Use latest bar data if snapshot unavailable
-      console.log(`${symbol}: Snapshot unavailable, using bar data`);
+      console.log(`${symbol}: Falling back to bar data`);
       const bars = await this.getBars(symbol, '1Day', 2);
 
       if (bars.length === 0) {
