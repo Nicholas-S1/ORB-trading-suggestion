@@ -3,25 +3,37 @@ import { StockData, ORBData } from '../types';
 
 class AlpacaService {
   private alpaca: any;
+  private requestDelay = 200; // 200ms delay between requests to avoid rate limits
 
   constructor() {
     this.alpaca = new Alpaca({
       keyId: process.env.ALPACA_API_KEY,
       secretKey: process.env.ALPACA_SECRET_KEY,
       paper: true,
-      usePolygon: false
+      usePolygon: false,
+      feed: 'iex' // Use free IEX feed instead of paid SIP feed
     });
+  }
+
+  // Helper to delay requests and avoid rate limits
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async getStockQuote(symbol: string): Promise<StockData | null> {
     try {
-      const quote = await this.alpaca.getLatestTrade(symbol);
+      await this.delay(this.requestDelay); // Rate limiting
+
       const snapshot = await this.alpaca.getSnapshot(symbol);
+
+      if (!snapshot || !snapshot.latestTrade) {
+        return null;
+      }
 
       return {
         symbol,
-        price: quote.Price || snapshot.latestTrade?.p || 0,
-        volume: snapshot.dailyBar?.v || 0,
+        price: snapshot.latestTrade.p || 0,
+        volume: snapshot.dailyBar?.v || snapshot.minuteBar?.v || 0,
         change: snapshot.dailyBar?.c - snapshot.dailyBar?.o || 0,
         changePercent: ((snapshot.dailyBar?.c - snapshot.dailyBar?.o) / snapshot.dailyBar?.o * 100) || 0,
       };
@@ -33,15 +45,18 @@ class AlpacaService {
 
   async getBars(symbol: string, timeframe: string = '5Min', limit: number = 20): Promise<any[]> {
     try {
+      await this.delay(this.requestDelay); // Rate limiting
+
       const end = new Date();
       const start = new Date();
-      start.setHours(9, 30, 0, 0); // Market open
+      start.setDate(start.getDate() - 1); // Get data from yesterday to ensure we have enough
 
       const bars = await this.alpaca.getBarsV2(symbol, {
         start: start.toISOString(),
         end: end.toISOString(),
         timeframe,
-        limit
+        limit,
+        feed: 'iex' // Explicitly use IEX feed
       });
 
       const barArray = [];
@@ -105,14 +120,15 @@ class AlpacaService {
   }
 
   async getActiveStocks(): Promise<string[]> {
+    // Reduced list to work with free tier rate limits
     // Popular liquid stocks across different price ranges
     return [
       // Small account friendly (under $50)
-      'F', 'SOFI', 'PLTR', 'NIO', 'AAL', 'SNAP', 'VALE', 'LUMN',
+      'F', 'SOFI', 'PLTR', 'SNAP', 'AAL',
       // Medium price range ($50-$250)
-      'AMD', 'INTC', 'BABA', 'NFLX', 'DIS', 'PYPL', 'UBER', 'COIN',
+      'AMD', 'INTC', 'UBER', 'PYPL',
       // Higher price range (still accessible)
-      'TSLA', 'NVDA', 'AMZN', 'GOOGL', 'MSFT', 'META', 'AAPL', 'AVGO'
+      'TSLA', 'NVDA', 'AAPL', 'MSFT'
     ];
   }
 }
