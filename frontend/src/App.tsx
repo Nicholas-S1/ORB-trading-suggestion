@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { SuggestionCard } from './components/SuggestionCard';
 import { ORBInfoBar } from './components/ORBInfoBar';
 import { WatchlistTab } from './components/WatchlistTab';
+import { Login } from './components/Login';
+import { Register } from './components/Register';
 import { apiService } from './services/api';
 import { AccountTier, SuggestionResponse } from './types';
+import { useAuth } from './contexts/AuthContext';
 
 type TabType = AccountTier | 'WATCHLIST';
 
@@ -12,6 +15,8 @@ type TierData = {
 };
 
 function App() {
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>(AccountTier.SMALL);
   const [tierData, setTierData] = useState<TierData>({
     [AccountTier.SMALL]: null,
@@ -88,10 +93,41 @@ function App() {
   const currentData = tierData[activeTab];
   const isLoading = loading[activeTab];
 
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-white"></div>
+          <p className="mt-4 text-white text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show Login/Register if not authenticated
+  if (!isAuthenticated) {
+    if (showRegister) {
+      return <Register onSwitchToLogin={() => setShowRegister(false)} />;
+    }
+    return <Login onSwitchToRegister={() => setShowRegister(true)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex flex-col">
       <div className="flex-1 container mx-auto px-4 py-8 max-w-7xl">
         <header className="text-center mb-8">
+          <div className="flex justify-end mb-4">
+            <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-2 text-white flex items-center gap-4">
+              <span>Welcome, {user?.name || user?.email}</span>
+              <button
+                onClick={logout}
+                className="bg-red-600 hover:bg-red-700 px-4 py-1 rounded transition-colors text-sm font-semibold"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
           <h1 className="text-5xl font-bold text-white mb-3">
             ORB Trading Suggestions
           </h1>
