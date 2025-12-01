@@ -41,18 +41,36 @@ class AlpacaService {
     try {
       await this.delay(this.requestDelay); // Rate limiting
 
+      // Try snapshot first
       const snapshot = await this.retryRequest(() => this.alpaca.getSnapshot(symbol));
 
-      if (!snapshot || !snapshot.latestTrade) {
+      if (snapshot && snapshot.latestTrade && snapshot.latestTrade.p > 0) {
+        return {
+          symbol,
+          price: snapshot.latestTrade.p || 0,
+          volume: snapshot.dailyBar?.v || snapshot.minuteBar?.v || 0,
+          change: snapshot.dailyBar?.c - snapshot.dailyBar?.o || 0,
+          changePercent: ((snapshot.dailyBar?.c - snapshot.dailyBar?.o) / snapshot.dailyBar?.o * 100) || 0,
+        };
+      }
+
+      // Fallback: Use latest bar data if snapshot unavailable
+      console.log(`${symbol}: Snapshot unavailable, using bar data`);
+      const bars = await this.getBars(symbol, '1Day', 2);
+
+      if (bars.length === 0) {
         return null;
       }
 
+      const latestBar = bars[bars.length - 1];
+      const previousBar = bars.length > 1 ? bars[bars.length - 2] : null;
+
       return {
         symbol,
-        price: snapshot.latestTrade.p || 0,
-        volume: snapshot.dailyBar?.v || snapshot.minuteBar?.v || 0,
-        change: snapshot.dailyBar?.c - snapshot.dailyBar?.o || 0,
-        changePercent: ((snapshot.dailyBar?.c - snapshot.dailyBar?.o) / snapshot.dailyBar?.o * 100) || 0,
+        price: latestBar.ClosePrice || 0,
+        volume: latestBar.Volume || 0,
+        change: previousBar ? (latestBar.ClosePrice - previousBar.ClosePrice) : 0,
+        changePercent: previousBar ? ((latestBar.ClosePrice - previousBar.ClosePrice) / previousBar.ClosePrice * 100) : 0,
       };
     } catch (error) {
       console.error(`Error fetching quote for ${symbol}:`, error);
