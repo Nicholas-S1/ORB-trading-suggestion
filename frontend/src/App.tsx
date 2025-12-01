@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { SuggestionCard } from './components/SuggestionCard';
 import { ORBInfoBar } from './components/ORBInfoBar';
+import { WatchlistTab } from './components/WatchlistTab';
 import { apiService } from './services/api';
 import { AccountTier, SuggestionResponse } from './types';
+
+type TabType = AccountTier | 'WATCHLIST';
 
 type TierData = {
   [key in AccountTier]: SuggestionResponse | null;
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AccountTier>(AccountTier.SMALL);
+  const [activeTab, setActiveTab] = useState<TabType>(AccountTier.SMALL);
   const [tierData, setTierData] = useState<TierData>({
     [AccountTier.SMALL]: null,
     [AccountTier.MEDIUM]: null,
@@ -115,18 +118,37 @@ function App() {
               </div>
             </button>
           ))}
-        </div>
 
-        {/* Refresh Button */}
-        <div className="flex justify-center mb-6">
+          {/* Watchlist Tab */}
           <button
-            onClick={() => fetchSuggestionsForTier(activeTab)}
-            disabled={isLoading}
-            className="px-6 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 disabled:bg-gray-400 disabled:text-gray-600 transition-colors shadow-md"
+            onClick={() => setActiveTab('WATCHLIST')}
+            className={`px-8 py-4 rounded-lg font-bold text-lg transition-all border-2 ${
+              activeTab === 'WATCHLIST'
+                ? 'border-orange-500 bg-orange-500 text-white shadow-lg scale-105'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            {isLoading ? 'Loading...' : 'Refresh Suggestions'}
+            <div className="flex items-center gap-2">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              <span>Watchlist</span>
+            </div>
           </button>
         </div>
+
+        {/* Refresh Button - Only show for suggestion tabs */}
+        {activeTab !== 'WATCHLIST' && (
+          <div className="flex justify-center mb-6">
+            <button
+              onClick={() => fetchSuggestionsForTier(activeTab as AccountTier)}
+              disabled={isLoading}
+              className="px-6 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 disabled:bg-gray-400 disabled:text-gray-600 transition-colors shadow-md"
+            >
+              {isLoading ? 'Loading...' : 'Refresh Suggestions'}
+            </button>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -136,8 +158,11 @@ function App() {
         )}
 
         {/* Content Area */}
-        <div className="bg-white/95 backdrop-blur rounded-xl shadow-2xl p-6 min-h-[600px]">
-          {isLoading && (
+        {activeTab === 'WATCHLIST' ? (
+          <WatchlistTab />
+        ) : (
+          <div className="bg-white/95 backdrop-blur rounded-xl shadow-2xl p-6 min-h-[600px]">
+            {isLoading && (
             <div className="text-center py-20">
               <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
               <p className="mt-6 text-gray-600 text-lg">Scanning market for best ORB opportunities...</p>
@@ -183,20 +208,21 @@ function App() {
             </>
           )}
 
-          {!isLoading && !currentData && (
-            <div className="text-center py-20">
-              <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <h3 className="text-xl font-medium text-gray-900 mb-2">
-                Ready to Discover ORB Opportunities
-              </h3>
-              <p className="text-gray-600">
-                Click "Refresh Suggestions" to load the top 7 ORB setups for {tierConfigs[activeTab].name.toLowerCase()}.
-              </p>
-            </div>
-          )}
-        </div>
+            {!isLoading && !currentData && (
+              <div className="text-center py-20">
+                <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                  Ready to Discover ORB Opportunities
+                </h3>
+                <p className="text-gray-600">
+                  Click "Refresh Suggestions" to load the top 7 ORB setups for {activeTab !== 'WATCHLIST' ? tierConfigs[activeTab as AccountTier].name.toLowerCase() : 'this tier'}.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ORB Info Bar at Bottom */}
