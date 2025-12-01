@@ -3,9 +3,10 @@ import { TradingSuggestion } from '../types';
 
 interface SuggestionCardProps {
   suggestion: TradingSuggestion;
+  rank?: number;
 }
 
-export const SuggestionCard: React.FC<SuggestionCardProps> = ({ suggestion }) => {
+export const SuggestionCard: React.FC<SuggestionCardProps> = ({ suggestion, rank }) => {
   const { symbol, price, suggestedShares, totalCost, orbData, reason } = suggestion;
 
   const breakoutColor =
@@ -19,11 +20,18 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({ suggestion }) =>
     'bg-gray-100 text-gray-800';
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition-shadow">
+    <div className="bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-md p-5 hover:shadow-xl transition-all border-l-4 border-blue-500">
       <div className="flex justify-between items-start mb-3">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">{symbol}</h3>
-          <p className="text-sm text-gray-500">Current Price: ${price.toFixed(2)}</p>
+        <div className="flex items-center gap-3">
+          {rank && (
+            <div className="flex-shrink-0 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg">
+              {rank}
+            </div>
+          )}
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">{symbol}</h3>
+            <p className="text-sm text-gray-500">Current Price: ${price.toFixed(2)}</p>
+          </div>
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${liquidityColor}`}>
           {orbData.liquidity} Volume

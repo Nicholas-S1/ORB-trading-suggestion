@@ -1,149 +1,206 @@
-import React, { useState } from 'react';
-import { AccountTierSelector } from './components/AccountTierSelector';
+import React, { useState, useEffect } from 'react';
 import { SuggestionCard } from './components/SuggestionCard';
+import { ORBInfoBar } from './components/ORBInfoBar';
 import { apiService } from './services/api';
 import { AccountTier, SuggestionResponse } from './types';
 
+type TierData = {
+  [key in AccountTier]: SuggestionResponse | null;
+};
+
 function App() {
-  const [accountSize, setAccountSize] = useState(2500);
-  const [suggestions, setSuggestions] = useState<SuggestionResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<AccountTier>(AccountTier.SMALL);
+  const [tierData, setTierData] = useState<TierData>({
+    [AccountTier.SMALL]: null,
+    [AccountTier.MEDIUM]: null,
+    [AccountTier.LARGE]: null,
+  });
+  const [loading, setLoading] = useState<{ [key in AccountTier]: boolean }>({
+    [AccountTier.SMALL]: false,
+    [AccountTier.MEDIUM]: false,
+    [AccountTier.LARGE]: false,
+  });
   const [error, setError] = useState<string | null>(null);
 
-  const determineTier = (size: number): AccountTier => {
-    if (size < 5000) return AccountTier.SMALL;
-    if (size < 50000) return AccountTier.MEDIUM;
-    return AccountTier.LARGE;
+  const tierConfigs = {
+    [AccountTier.SMALL]: {
+      name: 'Small Accounts',
+      range: '$0 - $5,000',
+      accountSize: 2500,
+      color: 'border-blue-500 bg-blue-500',
+      inactiveColor: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+    },
+    [AccountTier.MEDIUM]: {
+      name: 'Medium Accounts',
+      range: '$5,000 - $50,000',
+      accountSize: 25000,
+      color: 'border-green-500 bg-green-500',
+      inactiveColor: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+    },
+    [AccountTier.LARGE]: {
+      name: 'Large Accounts',
+      range: '$50,000+',
+      accountSize: 100000,
+      color: 'border-purple-500 bg-purple-500',
+      inactiveColor: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+    },
   };
 
-  const handleGetSuggestions = async () => {
-    setLoading(true);
+  const fetchSuggestionsForTier = async (tier: AccountTier) => {
+    setLoading(prev => ({ ...prev, [tier]: true }));
     setError(null);
 
     try {
-      const result = await apiService.getSuggestions(accountSize);
-      setSuggestions(result);
+      const result = await apiService.getSuggestions(tierConfigs[tier].accountSize, tier);
+      setTierData(prev => ({
+        ...prev,
+        [tier]: {
+          ...result,
+          suggestions: result.suggestions.slice(0, 7) // Top 7 only
+        }
+      }));
     } catch (err) {
       setError('Failed to fetch suggestions. Make sure the backend is running and Alpaca API keys are configured.');
       console.error(err);
     } finally {
-      setLoading(false);
+      setLoading(prev => ({ ...prev, [tier]: false }));
     }
   };
 
-  const currentTier = determineTier(accountSize);
+  const fetchAllSuggestions = async () => {
+    await Promise.all([
+      fetchSuggestionsForTier(AccountTier.SMALL),
+      fetchSuggestionsForTier(AccountTier.MEDIUM),
+      fetchSuggestionsForTier(AccountTier.LARGE),
+    ]);
+  };
+
+  useEffect(() => {
+    // Fetch suggestions for the active tab on mount
+    if (!tierData[activeTab]) {
+      fetchSuggestionsForTier(activeTab);
+    }
+  }, [activeTab]);
+
+  const currentData = tierData[activeTab];
+  const isLoading = loading[activeTab];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex flex-col">
+      <div className="flex-1 container mx-auto px-4 py-8 max-w-7xl">
         <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-5xl font-bold text-white mb-3">
             ORB Trading Suggestions
           </h1>
-          <p className="text-gray-600">
-            Opening Range Breakout strategy tailored to your account size
+          <p className="text-blue-200 text-lg">
+            Opening Range Breakout - Top 7 Stocks by Account Size
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <AccountTierSelector
-              accountSize={accountSize}
-              onAccountSizeChange={setAccountSize}
-              currentTier={currentTier}
-            />
-
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6 justify-center flex-wrap">
+          {Object.entries(tierConfigs).map(([tier, config]) => (
             <button
-              onClick={handleGetSuggestions}
-              disabled={loading || accountSize <= 0}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md"
+              key={tier}
+              onClick={() => setActiveTab(tier as AccountTier)}
+              className={`px-8 py-4 rounded-lg font-bold text-lg transition-all border-2 ${
+                activeTab === tier
+                  ? `${config.color} text-white shadow-lg scale-105`
+                  : config.inactiveColor
+              }`}
             >
-              {loading ? 'Analyzing Market...' : 'Get Trading Suggestions'}
+              <div className="text-left">
+                <div>{config.name}</div>
+                <div className="text-sm font-normal opacity-80">{config.range}</div>
+              </div>
             </button>
+          ))}
+        </div>
 
-            <div className="mt-6 bg-white rounded-lg shadow-md p-4">
-              <h3 className="font-bold text-gray-900 mb-2">About ORB Strategy</h3>
-              <p className="text-sm text-gray-600 mb-2">
-                The Opening Range Breakout identifies stocks breaking above or below
-                their first 15 minutes of trading range.
-              </p>
-              <ul className="text-xs text-gray-600 space-y-1">
-                <li>• Bullish: Price breaks above opening high</li>
-                <li>• Bearish: Price breaks below opening low</li>
-                <li>• Watch List: Price near breakout levels</li>
-              </ul>
+        {/* Refresh Button */}
+        <div className="flex justify-center mb-6">
+          <button
+            onClick={() => fetchSuggestionsForTier(activeTab)}
+            disabled={isLoading}
+            className="px-6 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 disabled:bg-gray-400 disabled:text-gray-600 transition-colors shadow-md"
+          >
+            {isLoading ? 'Loading...' : 'Refresh Suggestions'}
+          </button>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-500 text-white px-6 py-4 rounded-lg mb-6 text-center shadow-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Content Area */}
+        <div className="bg-white/95 backdrop-blur rounded-xl shadow-2xl p-6 min-h-[600px]">
+          {isLoading && (
+            <div className="text-center py-20">
+              <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div>
+              <p className="mt-6 text-gray-600 text-lg">Scanning market for best ORB opportunities...</p>
             </div>
-          </div>
+          )}
 
-          <div className="lg:col-span-2">
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-
-            {loading && (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                <p className="mt-4 text-gray-600">Scanning market for opportunities...</p>
-              </div>
-            )}
-
-            {suggestions && !loading && (
-              <>
-                <div className="mb-4 bg-white rounded-lg shadow-md p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {suggestions.suggestions.length} Suggestions Found
-                      </h2>
-                      <p className="text-sm text-gray-500">
-                        Updated: {new Date(suggestions.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleGetSuggestions}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm font-medium text-gray-700"
-                    >
-                      Refresh
-                    </button>
-                  </div>
+          {!isLoading && currentData && (
+            <>
+              <div className="mb-6 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Top {currentData.suggestions.length} ORB Setups
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Last updated: {new Date(currentData.timestamp).toLocaleString()}
+                  </p>
                 </div>
-
-                {suggestions.suggestions.length === 0 ? (
-                  <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                    <p className="text-gray-600">
-                      No ORB setups found at the moment. Market conditions may not be favorable.
-                      Try refreshing in a few minutes.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {suggestions.suggestions.map((suggestion) => (
-                      <SuggestionCard key={suggestion.symbol} suggestion={suggestion} />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {!suggestions && !loading && (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Ready to Find Trading Opportunities
-                </h3>
-                <p className="text-gray-600">
-                  Enter your account size and click "Get Trading Suggestions" to discover
-                  ORB breakout opportunities tailored to your portfolio.
-                </p>
               </div>
-            )}
-          </div>
+
+              {currentData.suggestions.length === 0 ? (
+                <div className="text-center py-20">
+                  <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-gray-600 text-lg">
+                    No ORB setups found for this tier at the moment.
+                  </p>
+                  <p className="text-gray-500 text-sm mt-2">
+                    Market conditions may not be favorable. Try refreshing in a few minutes.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {currentData.suggestions.map((suggestion, index) => (
+                    <SuggestionCard
+                      key={suggestion.symbol}
+                      suggestion={suggestion}
+                      rank={index + 1}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {!isLoading && !currentData && (
+            <div className="text-center py-20">
+              <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <h3 className="text-xl font-medium text-gray-900 mb-2">
+                Ready to Discover ORB Opportunities
+              </h3>
+              <p className="text-gray-600">
+                Click "Refresh Suggestions" to load the top 7 ORB setups for {tierConfigs[activeTab].name.toLowerCase()}.
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ORB Info Bar at Bottom */}
+      <ORBInfoBar />
     </div>
   );
 }
