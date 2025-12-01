@@ -126,7 +126,11 @@ export const WatchlistTab: React.FC = () => {
           <div className="space-y-4">
             {currentWatchlist.map((item, index) => (
               <div key={item.id} className="relative">
-                <SuggestionCard suggestion={item.suggestion} rank={index + 1} />
+                <SuggestionCard
+                  suggestion={item.suggestion}
+                  rank={index + 1}
+                  showWatchlistButton={false}
+                />
 
                 <div className="mt-2 flex justify-between items-center bg-gray-50 p-3 rounded-lg border-l-4 border-orange-400">
                   <div className="flex items-center gap-4">
