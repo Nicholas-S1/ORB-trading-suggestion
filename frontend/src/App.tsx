@@ -84,14 +84,14 @@ function App() {
   };
 
   useEffect(() => {
-    // Fetch suggestions for the active tab on mount
-    if (!tierData[activeTab]) {
-      fetchSuggestionsForTier(activeTab);
+    // Fetch suggestions for the active tab on mount (skip if Watchlist tab)
+    if (activeTab !== 'WATCHLIST' && !tierData[activeTab as AccountTier]) {
+      fetchSuggestionsForTier(activeTab as AccountTier);
     }
   }, [activeTab]);
 
-  const currentData = tierData[activeTab];
-  const isLoading = loading[activeTab];
+  const currentData = activeTab !== 'WATCHLIST' ? tierData[activeTab as AccountTier] : null;
+  const isLoading = activeTab !== 'WATCHLIST' ? loading[activeTab as AccountTier] : false;
 
   // Show loading while checking authentication
   if (authLoading) {
