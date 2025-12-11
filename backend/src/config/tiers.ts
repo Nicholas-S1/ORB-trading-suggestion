@@ -7,7 +7,7 @@ export const TIER_CONFIGS: Record<AccountTier, AccountTierConfig> = {
     maxBalance: 5000,
     maxStockPrice: 250, // Allows buying 20+ shares with $5k
     minShares: 20,
-    averageAccountSize: 2500, // Average account size for risk calculation
+    averageAccountSize: 5000, // Average account size for risk calculation
     riskPercentage: 0.015 // 1.5% risk per trade
   },
   [AccountTier.MEDIUM]: {
