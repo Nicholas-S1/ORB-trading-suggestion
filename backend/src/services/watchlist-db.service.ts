@@ -4,8 +4,8 @@ import { AccountTier, TradingSuggestion } from '../types';
 const prisma = new PrismaClient();
 
 interface WatchlistItemDB {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   symbol: string;
   tier: string;
   price: number;
@@ -25,7 +25,7 @@ interface WatchlistItemDB {
 }
 
 class WatchlistDBService {
-  async addToWatchlist(userId: string, suggestion: TradingSuggestion, expirationDays: number) {
+  async addToWatchlist(userId: number, suggestion: TradingSuggestion, expirationDays: number) {
     const now = new Date();
     const expiresAt = new Date(now);
 
@@ -63,7 +63,7 @@ class WatchlistDBService {
     return this.formatWatchlistItem(item);
   }
 
-  async getWatchlist(userId: string) {
+  async getWatchlist(userId: number) {
     // First, delete expired items
     await prisma.watchlistItem.deleteMany({
       where: {
@@ -86,7 +86,7 @@ class WatchlistDBService {
     return items.map(item => this.formatWatchlistItem(item));
   }
 
-  async removeFromWatchlist(userId: string, id: string) {
+  async removeFromWatchlist(userId: number, id: number) {
     const deleted = await prisma.watchlistItem.deleteMany({
       where: {
         id,
@@ -97,7 +97,7 @@ class WatchlistDBService {
     return deleted.count > 0;
   }
 
-  async clearExpired(userId: string) {
+  async clearExpired(userId: number) {
     const deleted = await prisma.watchlistItem.deleteMany({
       where: {
         userId,

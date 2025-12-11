@@ -54,7 +54,7 @@ router.post('/add', async (req: AuthRequest, res: Response) => {
 // Remove from watchlist
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
     const removed = await watchlistDBService.removeFromWatchlist(req.userId!, id);
 
     if (removed) {

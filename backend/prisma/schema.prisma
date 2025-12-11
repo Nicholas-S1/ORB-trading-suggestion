@@ -11,7 +11,7 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   name      String?
@@ -24,8 +24,8 @@ model User {
 }
 
 model WatchlistItem {
-  id         String   @id @default(uuid())
-  userId     String
+  id         Int      @id @default(autoincrement())
+  userId     Int
   symbol     String
   tier       String
   price      Float
