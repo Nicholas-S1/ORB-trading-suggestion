@@ -74,27 +74,16 @@ class WatchlistDBService {
       }
     });
 
-    // Then fetch remaining items
+    // Then fetch remaining items - return flat array ordered by symbol then addedAt
     const items = await prisma.watchlistItem.findMany({
       where: { userId },
-      orderBy: { addedAt: 'desc' }
+      orderBy: [
+        { symbol: 'asc' },
+        { addedAt: 'desc' }
+      ]
     });
 
-    // Group by tier
-    const grouped = {
-      [AccountTier.SMALL]: [] as any[],
-      [AccountTier.MEDIUM]: [] as any[],
-      [AccountTier.LARGE]: [] as any[]
-    };
-
-    items.forEach(item => {
-      const formatted = this.formatWatchlistItem(item);
-      if (grouped[item.tier as AccountTier]) {
-        grouped[item.tier as AccountTier].push(formatted);
-      }
-    });
-
-    return grouped;
+    return items.map(item => this.formatWatchlistItem(item));
   }
 
   async removeFromWatchlist(userId: string, id: string) {

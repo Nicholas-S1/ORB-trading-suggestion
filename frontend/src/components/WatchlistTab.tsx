@@ -1,23 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { AccountTier } from '../types';
-import { watchlistService, WatchlistData } from '../services/watchlist';
-import { SuggestionCard } from './SuggestionCard';
+import { watchlistService, WatchlistItem } from '../services/watchlist';
+
+interface GroupedWatchlistItem {
+  symbol: string;
+  items: WatchlistItem[];
+}
 
 export const WatchlistTab: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<AccountTier>(AccountTier.SMALL);
-  const [watchlist, setWatchlist] = useState<WatchlistData | null>(null);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   const tierLabels = {
-    [AccountTier.SMALL]: 'Small Accounts',
-    [AccountTier.MEDIUM]: 'Medium Accounts',
-    [AccountTier.LARGE]: 'Large Accounts'
+    [AccountTier.SMALL]: 'Small',
+    [AccountTier.MEDIUM]: 'Medium',
+    [AccountTier.LARGE]: 'Large'
   };
 
   const tierColors = {
-    [AccountTier.SMALL]: 'border-blue-500 bg-blue-500',
-    [AccountTier.MEDIUM]: 'border-green-500 bg-green-500',
-    [AccountTier.LARGE]: 'border-purple-500 bg-purple-500'
+    [AccountTier.SMALL]: 'bg-blue-500',
+    [AccountTier.MEDIUM]: 'bg-green-500',
+    [AccountTier.LARGE]: 'bg-purple-500'
   };
 
   const loadWatchlist = async () => {
@@ -62,34 +65,25 @@ export const WatchlistTab: React.FC = () => {
     return `${diffDays}d ${diffHours % 24}h`;
   };
 
-  const currentWatchlist = watchlist ? watchlist[activeSubTab] : [];
+  // Group watchlist items by symbol
+  const groupedWatchlist: GroupedWatchlistItem[] = [];
+  const symbolMap = new Map<string, WatchlistItem[]>();
+
+  watchlist.forEach(item => {
+    if (!symbolMap.has(item.suggestion.symbol)) {
+      symbolMap.set(item.suggestion.symbol, []);
+    }
+    symbolMap.get(item.suggestion.symbol)!.push(item);
+  });
+
+  symbolMap.forEach((items, symbol) => {
+    groupedWatchlist.push({ symbol, items });
+  });
 
   return (
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-white mb-4">Your Watchlist</h2>
-
-        {/* Sub-tabs for tiers */}
-        <div className="flex gap-3 mb-4">
-          {Object.entries(tierLabels).map(([tier, label]) => (
-            <button
-              key={tier}
-              onClick={() => setActiveSubTab(tier as AccountTier)}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all border-2 ${
-                activeSubTab === tier
-                  ? `${tierColors[tier as AccountTier]} text-white shadow-lg`
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {label}
-              {watchlist && watchlist[tier as AccountTier].length > 0 && (
-                <span className="ml-2 px-2 py-0.5 bg-white/30 rounded-full text-xs">
-                  {watchlist[tier as AccountTier].length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
 
         <button
           onClick={loadWatchlist}
@@ -108,13 +102,13 @@ export const WatchlistTab: React.FC = () => {
           </div>
         )}
 
-        {!loading && currentWatchlist.length === 0 && (
+        {!loading && watchlist.length === 0 && (
           <div className="text-center py-16">
             <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
             <h3 className="text-xl font-medium text-gray-900 mb-2">
-              No stocks in your {tierLabels[activeSubTab].toLowerCase()} watchlist
+              No stocks in your watchlist
             </h3>
             <p className="text-gray-600">
               Add stocks from the suggestions tabs using the "Add to Watchlist" button
@@ -122,38 +116,111 @@ export const WatchlistTab: React.FC = () => {
           </div>
         )}
 
-        {!loading && currentWatchlist.length > 0 && (
-          <div className="space-y-4">
-            {currentWatchlist.map((item, index) => (
-              <div key={item.id} className="relative">
-                <SuggestionCard
-                  suggestion={item.suggestion}
-                  rank={index + 1}
-                  showWatchlistButton={false}
-                />
-
-                <div className="mt-2 flex justify-between items-center bg-gray-50 p-3 rounded-lg border-l-4 border-orange-400">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <span className="text-xs text-gray-500 font-semibold">Expires in:</span>
-                      <span className="ml-2 text-sm font-bold text-orange-600">
-                        {formatExpirationTime(item.expiresAt)}
+        {!loading && groupedWatchlist.length > 0 && (
+          <div className="space-y-6">
+            {groupedWatchlist.map((group) => (
+              <div key={group.symbol} className="border-2 border-gray-200 rounded-xl p-4 bg-white">
+                {/* Stock Symbol Header */}
+                <div className="mb-3">
+                  <h3 className="text-2xl font-bold text-gray-900">{group.symbol}</h3>
+                  <div className="flex gap-2 mt-2">
+                    {group.items.map(item => (
+                      <span
+                        key={item.id}
+                        className={`px-3 py-1 ${tierColors[item.tier]} text-white text-xs font-bold rounded-full`}
+                      >
+                        {tierLabels[item.tier]} Account
                       </span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Added:</span>
-                      <span className="ml-2 text-sm">
-                        {new Date(item.addedAt).toLocaleString()}
-                      </span>
-                    </div>
+                    ))}
                   </div>
+                </div>
 
-                  <button
-                    onClick={() => handleRemove(item.id)}
-                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
-                  >
-                    Remove
-                  </button>
+                {/* Display each tier variation */}
+                <div className="space-y-4">
+                  {group.items.map((item, index) => (
+                    <div key={item.id} className="border-l-4 border-gray-300 pl-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className={`inline-block px-3 py-1 ${tierColors[item.tier]} text-white text-sm font-bold rounded`}>
+                          {tierLabels[item.tier]} Account Setup
+                        </div>
+                      </div>
+
+                      {/* Tier-specific suggestion details */}
+                      <div className="bg-gray-50 rounded-lg p-4 mb-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500 font-semibold">Price:</span>
+                            <span className="ml-2 text-gray-900 font-bold">${item.suggestion.price.toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 font-semibold">Shares:</span>
+                            <span className="ml-2 text-gray-900 font-bold">{item.suggestion.suggestedShares}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 font-semibold">Total Cost:</span>
+                            <span className="ml-2 text-gray-900 font-bold">${item.suggestion.totalCost.toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 font-semibold">Breakout:</span>
+                            <span className={`ml-2 font-bold ${
+                              item.suggestion.orbData.breakoutType === 'BULLISH' ? 'text-green-600' :
+                              item.suggestion.orbData.breakoutType === 'BEARISH' ? 'text-red-600' :
+                              'text-gray-600'
+                            }`}>
+                              {item.suggestion.orbData.breakoutType}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500 font-semibold">Opening Range:</span>
+                            <div className="text-gray-900">
+                              ${item.suggestion.orbData.openingRangeLow.toFixed(2)} - ${item.suggestion.orbData.openingRangeHigh.toFixed(2)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 font-semibold">Current Price:</span>
+                            <div className="text-gray-900 font-bold">${item.suggestion.orbData.currentPrice.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 font-semibold">Liquidity:</span>
+                            <div className="text-gray-900">{item.suggestion.orbData.liquidity}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 text-sm">
+                          <span className="text-gray-500 font-semibold">Reason:</span>
+                          <div className="text-gray-900 mt-1">{item.suggestion.reason}</div>
+                        </div>
+                      </div>
+
+                      {/* Expiration and Remove Button */}
+                      <div className="flex justify-between items-center bg-orange-50 p-3 rounded-lg border-l-4 border-orange-400">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <span className="text-xs text-gray-500 font-semibold">Expires in:</span>
+                            <span className="ml-2 text-sm font-bold text-orange-600">
+                              {formatExpirationTime(item.expiresAt)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-gray-500">Added:</span>
+                            <span className="ml-2 text-sm">
+                              {new Date(item.addedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleRemove(item.id)}
+                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

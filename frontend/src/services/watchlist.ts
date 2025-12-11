@@ -22,14 +22,8 @@ export interface WatchlistItem {
   tier: AccountTier;
 }
 
-export interface WatchlistData {
-  SMALL: WatchlistItem[];
-  MEDIUM: WatchlistItem[];
-  LARGE: WatchlistItem[];
-}
-
 export const watchlistService = {
-  async getWatchlist(): Promise<WatchlistData> {
+  async getWatchlist(): Promise<WatchlistItem[]> {
     const response = await axiosInstance.get(API_BASE_URL);
     return response.data;
   },
