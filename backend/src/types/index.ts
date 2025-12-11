@@ -10,6 +10,8 @@ export interface AccountTierConfig {
   maxBalance: number;
   maxStockPrice: number;
   minShares: number;
+  averageAccountSize: number;
+  riskPercentage: number;
 }
 
 export interface StockData {

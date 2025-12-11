@@ -6,21 +6,27 @@ export const TIER_CONFIGS: Record<AccountTier, AccountTierConfig> = {
     minBalance: 0,
     maxBalance: 5000,
     maxStockPrice: 250, // Allows buying 20+ shares with $5k
-    minShares: 20
+    minShares: 20,
+    averageAccountSize: 2500, // Average account size for risk calculation
+    riskPercentage: 0.015 // 1.5% risk per trade
   },
   [AccountTier.MEDIUM]: {
     tier: AccountTier.MEDIUM,
     minBalance: 5000,
     maxBalance: 50000,
     maxStockPrice: 2500, // Allows buying 20+ shares with $50k
-    minShares: 20
+    minShares: 20,
+    averageAccountSize: 25000, // Average account size for risk calculation
+    riskPercentage: 0.015 // 1.5% risk per trade
   },
   [AccountTier.LARGE]: {
     tier: AccountTier.LARGE,
     minBalance: 50000,
     maxBalance: Infinity,
     maxStockPrice: Infinity,
-    minShares: 10 // More flexible for large accounts
+    minShares: 10, // More flexible for large accounts
+    averageAccountSize: 50000, // Average account size for risk calculation
+    riskPercentage: 0.015 // 1.5% risk per trade
   }
 };
 

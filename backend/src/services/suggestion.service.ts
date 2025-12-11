@@ -64,9 +64,24 @@ class SuggestionService {
           continue;
         }
 
-        // Determine suggested share quantity (use ~25% of buying power per position)
-        const suggestedShares = Math.floor((request.accountSize * 0.25) / stockData.price);
-        const totalCost = suggestedShares * stockData.price;
+        // Risk-based position sizing
+        // Risk amount = average account size × risk percentage (1.5%)
+        const riskAmount = tierConfig.averageAccountSize * tierConfig.riskPercentage;
+
+        // Risk per share = ORB range (stop loss distance)
+        const orbRange = orbData.openingRangeHigh - orbData.openingRangeLow;
+
+        // Calculate shares based on risk
+        // If ORB range is too small, use minimum viable range to avoid huge positions
+        const minRange = stockData.price * 0.005; // 0.5% minimum range
+        const effectiveRange = Math.max(orbRange, minRange);
+
+        const suggestedShares = Math.floor(riskAmount / effectiveRange);
+
+        // Ensure we meet minimum shares requirement
+        const finalShares = Math.max(suggestedShares, tierConfig.minShares);
+
+        const totalCost = finalShares * stockData.price;
 
         let reason = '';
         if (orbData.breakoutType === 'BULLISH') {
@@ -91,7 +106,7 @@ class SuggestionService {
         suggestions.push({
           symbol,
           price: stockData.price,
-          suggestedShares,
+          suggestedShares: finalShares,
           totalCost,
           orbData,
           reason,
